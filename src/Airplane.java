@@ -7,7 +7,7 @@ public class Airplane implements Runnable {
 
     private boolean isServiced;
     private boolean isRefuelled;
-    private boolean isCleaned;
+    private boolean isBoarded;
 
     private final Runway runway;
     private final BlockingQueue<Airplane> landingQueue;
@@ -23,6 +23,30 @@ public class Airplane implements Runnable {
 
     public void setAssignedGate(Gate assignedGate) {
         this.assignedGate = assignedGate;
+    }
+
+    public boolean isServiced() {
+        return isServiced;
+    }
+
+    public void setServiced(boolean isServiced) {
+        this.isServiced = isServiced;
+    }
+
+    public boolean isRefuelled() {
+        return isRefuelled;
+    }
+
+    public void setRefuelled(boolean isRefuelled) {
+        this.isRefuelled = isRefuelled;
+    }
+
+    public boolean isBoarded() {
+        return isBoarded;
+    }
+
+    public void setBoarded(boolean isBoarded) {
+        this.isBoarded = isBoarded;
     }
 
     // CONSTRUCTOR
@@ -62,10 +86,8 @@ public class Airplane implements Runnable {
     }
 
     public boolean isReadyForTakeoff() {
-        return isServiced && isRefuelled && isCleaned;
+        return isServiced && isRefuelled && isBoarded;
     }
-
-    
 
     @Override
     public void run() {
