@@ -5,9 +5,9 @@ public class Airplane implements Runnable {
     private AirplanePassengers passengers;
     private Gate assignedGate;
 
-    private boolean isServiced;
-    private boolean isRefuelled;
-    private boolean isBoarded;
+    private boolean isServiced = false;
+    private boolean isRefuelled = false;
+    private boolean isBoarded = true;
 
     private final Runway runway;
     private final BlockingQueue<Airplane> landingQueue;
@@ -54,6 +54,9 @@ public class Airplane implements Runnable {
         this.planeNo = id;
         this.runway = runway;
         this.landingQueue = landingQueue;
+
+        this.passengers = new AirplanePassengers(this);
+        new Thread(passengers, "Plane " + id + "'s Passengers").start();
     }
 
     // METHODS
@@ -83,10 +86,28 @@ public class Airplane implements Runnable {
                 assignedGate.getGateNo());
         runway.releaseRunway();
 
+        assignedGate.setDockedPlane(this);
+        assignedGate.setOccupied(true);
+
+        synchronized (this) {
+            notifyAll(); // Notify passengers that the plane has docked and they can disembark
+        }
     }
 
     public boolean isReadyForTakeoff() {
         return isServiced && isRefuelled && isBoarded;
+    }
+
+    public void waitUntilReadyForTakeoff() {
+        synchronized (this) {
+            while (!isReadyForTakeoff()) {
+                try {
+                    wait(); // Block until ground crew signals that the plane is ready for takeoff
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
     }
 
     @Override
@@ -95,7 +116,7 @@ public class Airplane implements Runnable {
 
         synchronized (this) {
             try {
-                wait(); // Block until ATC grants clearance
+                wait();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -104,6 +125,8 @@ public class Airplane implements Runnable {
         land();
         coastToGate();
         dock();
+
+        waitUntilReadyForTakeoff();
     }
 
     // GETTERS & SETTERS

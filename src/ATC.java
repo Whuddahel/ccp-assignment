@@ -17,8 +17,8 @@ public class ATC implements Runnable {
 
     public Gate assignGate() {
         for (Gate gate : gates) {
-            if (!gate.isOccupied()) {
-                gate.setOccupied(true); // If gate is marked occupied only when docked, ATC may assign the same gate to
+            if (!gate.isReserved()) {
+                gate.setReserved(true); // If gate is marked occupied only when docked, ATC may assign the same gate to
                                         // multiple planes.
                 return gate;
             }
@@ -48,8 +48,8 @@ public class ATC implements Runnable {
                     assignedGate.getGateNo());
 
             synchronized (airplane) {
-                airplane.notify();
                 airplane.setAssignedGate(assignedGate);
+                airplane.notifyAll();
             }
         } catch (InterruptedException e) {
             System.out.printf("[%s]: Runway occupied. Landing Permission denied to Plane %d.\n",
