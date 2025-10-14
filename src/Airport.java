@@ -17,7 +17,9 @@ public class Airport {
 
         Gate[] gates = { gate1, gate2, gate3 };
 
-        Thread atcThread = new Thread(new ATC(runway, landingQueue, gates), "ATC");
+        ATC atc = new ATC(runway, landingQueue, gates);
+
+        Thread atcThread = new Thread(atc, "ATC");
         atcThread.start();
 
         RefuellingTruck refuellingTruck = new RefuellingTruck(refuelRequestQueue, gate1);
@@ -25,7 +27,7 @@ public class Airport {
         refuellingTruckThread.start();
 
         // Start 6 planes
-        for (int i = 1; i <= 6; i++) {
+        for (int i = 1; i <= 5; i++) {
             try {
                 Thread.sleep(rand.nextInt(2001)); // Random delay between 0 to 2 seconds
             } catch (InterruptedException e) {
@@ -33,9 +35,9 @@ public class Airport {
             }
 
             if (i==5){
-                new Thread(new Airplane(i, runway, landingQueue, refuelRequestQueue, "Emergency Landing"), "Plane-" + i).start();
+                new Thread(new Airplane(i, runway, landingQueue, refuelRequestQueue, "Emergency Landing", atc), "Plane-" + i).start();
             }else {
-                new Thread(new Airplane(i, runway, landingQueue, refuelRequestQueue, "Landing"), "Plane-" + i).start();
+                new Thread(new Airplane(i, runway, landingQueue, refuelRequestQueue, "Landing", atc), "Plane-" + i).start();
             }
         }
     }
