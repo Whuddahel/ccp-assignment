@@ -80,7 +80,7 @@ public class Airplane implements Runnable {
         } else {
             System.out.printf("[%s]: Plane %d requesting to land.\n", Thread.currentThread().getName(), this.planeNo);
         }
-        
+
         try {
             runwayRequestsQueue.put(this);
         } catch (InterruptedException e) {
@@ -152,8 +152,6 @@ public class Airplane implements Runnable {
         System.out.printf("[%s]: Plane %d is waiting until it is ready for takeoff. (Service, Refuel, Boarding)\n",
                 Thread.currentThread().getName(), this.planeNo);
 
-        nextAction = "Takeoff";
-
         synchronized (this) {
             while (!isReadyForTakeoff()) {
                 try {
@@ -165,7 +163,7 @@ public class Airplane implements Runnable {
         }
 
         System.out.printf("[%s]: Plane %d is ready for takeoff!\n", Thread.currentThread().getName(), this.planeNo);
-        nextAction = "Ready for Takeoff";
+        nextAction = "Takeoff";
     }
 
     public void requestTakeoff() {
@@ -192,6 +190,7 @@ public class Airplane implements Runnable {
         System.out.printf("[%s]: Plane %d has taken off from Gate %d.\n", Thread.currentThread().getName(),
                 this.planeNo,
                 assignedGate.getGateNo());
+        assignedGate.setReserved(false);
         assignedGate.setOccupied(false);
         assignedGate.setDockedPlane(null);
     }

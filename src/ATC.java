@@ -30,10 +30,24 @@ public class ATC implements Runnable {
     }
 
     public void handleRunwayRequests(Airplane airplane) {
+        if (airplane.getNextAction().equals("Takeoff")) {
+            Gate assignedGate = assignGate();
 
-        Gate assignedGate = assignGate();
-        if (assignedGate == null) {
-            System.out.println("This should be unreachable, but let's see what happens.\n");
+            if (assignedGate == null) {
+                System.out.printf("[%s]: No available Gates. %s Permission denied to Plane %d. Re-queuing.\n",
+                        Thread.currentThread().getName(),
+                        airplane.getNextAction(),
+                        airplane.getPlaneNo());
+
+                try {
+                    runwayRequestsQueue.put(airplane);
+                    Thread.sleep(1000); // Small delay to prevent busy waiting
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+
+                return;
+            }
         }
 
         if (!runway.isRunwayAvailable()) {
@@ -41,6 +55,7 @@ public class ATC implements Runnable {
                     Thread.currentThread().getName(),
                     airplane.getNextAction(),
                     airplane.getPlaneNo());
+            return;
         }
 
         try {
