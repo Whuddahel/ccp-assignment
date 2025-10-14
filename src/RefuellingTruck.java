@@ -1,15 +1,49 @@
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Semaphore;
 
-public class RefuellingTruck {
+public class RefuellingTruck implements Runnable {
     private final Semaphore refuellingTruckLock = new Semaphore(1);
     private Gate currentGate;
+    private BlockingQueue<Airplane> refuelRequestQueue;
+    private Airplane airplaneToRefuel;
 
     // GETTERS & SETTERS
     // CONSTRUCTOR
+    public RefuellingTruck(BlockingQueue<Airplane> refuelRequestQueue, Gate currentGate) {
+        this.refuelRequestQueue = refuelRequestQueue;
+        this.currentGate = currentGate;
+    }
+
     // METHODS
-    public void refuelPlane() {
-        System.out.printf("[%s]: Refuelling truck is refuelling Plane %d at Gate %d. \n",
+    public void moveToGate() {
+
+        if (currentGate != airplaneToRefuel.getAssignedGate()) {
+            try {
+                // Simulate time taken to move to gate
+                System.out.printf("[%s @ Gate %d]: Refuelling truck is moving to Gate %d to refuel Plane %d. \n",
+                        Thread.currentThread().getName(),
+                        currentGate.getGateNo(),
+                        airplaneToRefuel.getAssignedGate().getGateNo(),
+                        airplaneToRefuel.getPlaneNo());
+
+                Thread.sleep(1000);
+                currentGate = airplaneToRefuel.getAssignedGate();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                Thread.currentThread().interrupt();
+            }
+        }
+        System.out.printf("[%s @ Gate %d]: Refuelling truck is at Gate %d. Proceeding with refuelling.\n",
                 Thread.currentThread().getName(),
+                currentGate.getGateNo(),
+                currentGate.getGateNo());
+
+    }
+
+    public void refuelPlane() {
+        System.out.printf("[%s @ Gate %d]: Refuelling truck is refuelling Plane %d at Gate %d. \n",
+                Thread.currentThread().getName(),
+                currentGate.getGateNo(),
                 currentGate.getDockedPlane().getPlaneNo(),
                 currentGate.getGateNo());
 
@@ -19,21 +53,40 @@ public class RefuellingTruck {
             Thread.currentThread().interrupt();
         }
 
-        System.out.printf("[%s]: Refuelling truck has finished refuelling Plane %d at Gate %d. \n",
+        System.out.printf("[%s @ Gate %d]: Refuelling truck has finished refuelling Plane %d at Gate %d. \n",
                 Thread.currentThread().getName(),
+                currentGate.getGateNo(),
                 currentGate.getDockedPlane().getPlaneNo(),
                 currentGate.getGateNo());
 
         currentGate.getDockedPlane().setRefuelled(true);
+        synchronized (airplaneToRefuel) {
+            airplaneToRefuel.notifyAll(); // Need to notify so plane rechecks condition
+        }
     }
 
-    public void acquireRefuellingTruck(Gate gate) throws InterruptedException {
+    public void acquireRefuellingTruck() throws InterruptedException {
         refuellingTruckLock.acquire();
-        this.currentGate = gate;
     }
 
     public void releaseRefuellingTruck() {
         refuellingTruckLock.release();
-        this.currentGate = null;
+
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                airplaneToRefuel = refuelRequestQueue.take();
+
+                acquireRefuellingTruck();
+                moveToGate();
+                refuelPlane();
+                releaseRefuellingTruck();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
     }
 }

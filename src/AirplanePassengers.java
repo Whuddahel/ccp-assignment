@@ -4,7 +4,7 @@ public class AirplanePassengers implements Runnable {
     Random rand = new Random();
 
     private final Airplane airplane;
-    private int passengerCount = rand.nextInt(10, 100);
+    private int passengerCount;
 
     // GETTERS & SETTERS
     public int getPassengerCount() {
@@ -22,7 +22,15 @@ public class AirplanePassengers implements Runnable {
 
     // METHODS
     public void disembarkAirplane() {
-        System.out.printf("[%s]: %d passengers are disembarking from Plane %d at Gate %d. \n",
+        try {
+            Thread.sleep(1000); // Simulate time taken for passengers to disembark and board
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        passengerCount = rand.nextInt(10, 100);
+
+        System.out.printf("[%s]: %d Passengers are disembarking from Plane %d at Gate %d. \n",
                 Thread.currentThread().getName(),
                 passengerCount,
                 airplane.getPlaneNo(),
@@ -32,7 +40,15 @@ public class AirplanePassengers implements Runnable {
     }
 
     public void boardAirplane() {
-        System.out.printf("[%s]: %d passengers are boarding Plane %d at Gate %d. \n",
+        try {
+            Thread.sleep(1000); // Simulate time taken for passengers to disembark and board
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        passengerCount = rand.nextInt(10, 100);
+
+        System.out.printf("[%s]: %d Passengers are boarding Plane %d at Gate %d. \n",
                 Thread.currentThread().getName(),
                 passengerCount,
                 airplane.getPlaneNo(),
@@ -47,23 +63,17 @@ public class AirplanePassengers implements Runnable {
     @Override
     public void run() {
         synchronized (airplane) {
-            while (airplane.getAssignedGate() == null || !airplane.getAssignedGate().isOccupied()) { // Check if plane is docked
+            while (airplane.getAssignedGate() == null || !airplane.getAssignedGate().isOccupied()) {
                 try {
                     airplane.wait();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
-                
+
             }
         }
 
         disembarkAirplane();
-
-        try {
-            Thread.sleep(2000); // Simulate time taken for passengers to disembark and board
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
 
         boardAirplane();
     }

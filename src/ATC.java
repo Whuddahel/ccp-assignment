@@ -3,13 +3,14 @@ import java.util.concurrent.BlockingQueue;
 public class ATC implements Runnable {
     private Runway runway;
     private Gate[] gates;
-    private BlockingQueue<Airplane> landingQueue;
+    private BlockingQueue<Airplane> runwayRequestsQueue;
+    private BlockingQueue<Airplane> takeoffQueue;
 
     // GETTERS & SETTERS
     // CONSTRUCTOR
-    public ATC(Runway runway, BlockingQueue<Airplane> landingQueue, Gate[] gates) {
+    public ATC(Runway runway, BlockingQueue<Airplane> runwayRequestsQueue, Gate[] gates) {
         this.runway = runway;
-        this.landingQueue = landingQueue;
+        this.runwayRequestsQueue = runwayRequestsQueue;
         this.gates = gates;
     }
 
@@ -18,18 +19,27 @@ public class ATC implements Runnable {
     public Gate assignGate() {
         for (Gate gate : gates) {
             if (!gate.isReserved()) {
-                gate.setReserved(true); // If gate is marked occupied only when docked, ATC may assign the same gate to
+                gate.setReserved(true); // If gate is marked occupied only when docked ATC may assign the same gate to
                                         // multiple planes.
+
                 return gate;
             }
         }
+
         return null; // No available gates
     }
 
-    public void handleLandingRequest(Airplane airplane) {
+    public void handleRunwayRequests(Airplane airplane) {
+
+        Gate assignedGate = assignGate();
+        if (assignedGate == null) {
+            System.out.println("This should be unreachable, but let's see what happens.\n");
+        }
+
         if (!runway.isRunwayAvailable()) {
-            System.out.printf("[%s]: Runway occupied. Landing Permission denied to Plane %d. Re-queuing.\n",
+            System.out.printf("[%s]: Runway occupied. %s Permission denied to Plane %d. Re-queuing.\n",
                     Thread.currentThread().getName(),
+                    airplane.getNextAction(),
                     airplane.getPlaneNo());
         }
 
@@ -37,13 +47,9 @@ public class ATC implements Runnable {
             runway.acquireRunway(); // Runway permit has to be obtained here. Otherwise, a small window for a race
                                     // condition exists.
 
-            Gate assignedGate = assignGate();
-            if (assignedGate == null) {
-                System.out.println("This should be unreachable, but let's see what happens.\n");
-            }
-
-            System.out.printf("[%s]: Runway free. Landing Permission granted to Plane %d. Assigned Gate: %d\n",
+            System.out.printf("[%s]: Runway free. %s Permission granted to Plane %d. Assigned Gate: %d\n",
                     Thread.currentThread().getName(),
+                    airplane.getNextAction(),
                     airplane.getPlaneNo(),
                     assignedGate.getGateNo());
 
@@ -52,10 +58,12 @@ public class ATC implements Runnable {
                 airplane.notifyAll();
             }
         } catch (InterruptedException e) {
-            System.out.printf("[%s]: Runway occupied. Landing Permission denied to Plane %d.\n",
+            System.out.printf("[%s]: Runway occupied. %s Permission denied to Plane %d.\n",
                     Thread.currentThread().getName(),
+                    airplane.getNextAction(),
                     airplane.getPlaneNo());
 
+            e.printStackTrace();
             Thread.currentThread().interrupt();
             System.out.printf("[%s]: ATC was interrupted while re-queuing Plane %d.\n",
                     Thread.currentThread().getName(), airplane.getPlaneNo());
@@ -67,8 +75,28 @@ public class ATC implements Runnable {
     public void run() {
         while (true) {
             try {
-                Airplane airplane = landingQueue.take();
-                handleLandingRequest(airplane);
+                Airplane emergPlane = null;
+                Airplane airplane = null;
+
+                synchronized (runwayRequestsQueue) {
+                    for (Airplane plane : runwayRequestsQueue) {
+                        if (plane.getNextAction().equals("Emergency Landing")) {
+                            emergPlane = plane;
+                            break;
+                        }
+                    }
+                    if (emergPlane != null) {
+                        runwayRequestsQueue.remove(emergPlane);
+                    }
+                }
+
+                if (emergPlane != null) {
+                    airplane = emergPlane;
+                } else {
+                    airplane = runwayRequestsQueue.take(); // Blocking call
+                }
+
+                handleRunwayRequests(airplane);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 System.out.printf("[%s]: ATC was interrupted while waiting for landing requests.\n",

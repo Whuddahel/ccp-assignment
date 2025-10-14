@@ -1,5 +1,3 @@
-import java.util.concurrent.BlockingQueue;
-
 public class Gate {
     private final int gateNo;
     private Airplane dockedPlane;
@@ -8,7 +6,6 @@ public class Gate {
 
     private boolean isOccupied;
 
-    private BlockingQueue<Gate> refuelRequestQueue;
     private GateServiceCrew serviceCrew;
 
     // GETTERS & SETTERS
@@ -41,23 +38,26 @@ public class Gate {
     }
 
     // CONSTRUCTOR
-    public Gate(int gateNo, BlockingQueue<Gate> refuelRequestQueue) {
+    public Gate(int gateNo) {
         this.gateNo = gateNo;
         this.isOccupied = false;
-        this.refuelRequestQueue = refuelRequestQueue;
+
+        this.serviceCrew = new GateServiceCrew(this);
+        new Thread(serviceCrew, "Gate " + gateNo + "'s Service Crew").start();
     }
 
     // METHODS
-    public void requestRefuel() {
-        try {
-            refuelRequestQueue.put(this);
-            System.out.printf("[%s]: Gate %d has requested refuelling for the docked Plane %d. \n",
-                    Thread.currentThread().getName(),
-                    gateNo,
-                    dockedPlane.getPlaneNo());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
+    // public void requestRefuel() {
+    // try {
+    // refuelRequestQueue.put(this);
+    // System.out.printf("[%s]: Gate %d has requested refuelling for the docked
+    // Plane %d. \n",
+    // Thread.currentThread().getName(),
+    // gateNo,
+    // dockedPlane.getPlaneNo());
+    // } catch (InterruptedException e) {
+    // Thread.currentThread().interrupt();
+    // }
+    // }
 
 }

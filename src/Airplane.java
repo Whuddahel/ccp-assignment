@@ -10,7 +10,9 @@ public class Airplane implements Runnable {
     private boolean isBoarded = true;
 
     private final Runway runway;
-    private final BlockingQueue<Airplane> landingQueue;
+    private final BlockingQueue<Airplane> runwayRequestsQueue;
+    private final BlockingQueue<Airplane> refuelRequestQueue;
+    private String nextAction; // Literally just used for nicer print statements, oh, and emerg landing too
 
     // GETTERS & SETTERS
     public int getPlaneNo() {
@@ -49,11 +51,22 @@ public class Airplane implements Runnable {
         this.isBoarded = isBoarded;
     }
 
+    public String getNextAction() {
+        return nextAction;
+    }
+
+    public void setNextAction(String status) {
+        this.nextAction = status;
+    }
+
     // CONSTRUCTOR
-    public Airplane(int id, Runway runway, BlockingQueue<Airplane> landingQueue) {
+    public Airplane(int id, Runway runway, BlockingQueue<Airplane> runwayRequestsQueue,
+            BlockingQueue<Airplane> refuelRequestQueue, String nextAction) {
         this.planeNo = id;
         this.runway = runway;
-        this.landingQueue = landingQueue;
+        this.runwayRequestsQueue = runwayRequestsQueue;
+        this.refuelRequestQueue = refuelRequestQueue;
+        this.nextAction = nextAction;
 
         this.passengers = new AirplanePassengers(this);
         new Thread(passengers, "Plane " + id + "'s Passengers").start();
@@ -61,9 +74,15 @@ public class Airplane implements Runnable {
 
     // METHODS
     void requestLanding() {
-        System.out.printf("[%s]: Plane %d requesting to land.\n", Thread.currentThread().getName(), this.planeNo);
+        if (nextAction.equals("Emergency Landing")) {
+            System.out.printf("[%s]: Plane %d requesting EMERGENCY landing!\n", Thread.currentThread().getName(),
+                    this.planeNo);
+        } else {
+            System.out.printf("[%s]: Plane %d requesting to land.\n", Thread.currentThread().getName(), this.planeNo);
+        }
+        
         try {
-            landingQueue.put(this);
+            runwayRequestsQueue.put(this);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             System.out.printf("[%s]: Plane %d was interrupted while requesting to land.\n",
@@ -73,22 +92,53 @@ public class Airplane implements Runnable {
     }
 
     public void land() {
+        try {
+            Thread.sleep(1000); // Simulate time taken to land
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         System.out.printf("[%s]: Plane %d has landed.\n", Thread.currentThread().getName(), this.planeNo);
+
+        nextAction = "Landed";
+
     }
 
     public void coastToGate() {
+        try {
+            nextAction = "Docking";
+            Thread.sleep(1000); // Simulate time taken to coast to gate
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         System.out.printf("[%s]: Plane %d is coasting to Gate %d.\n", Thread.currentThread().getName(), this.planeNo,
                 assignedGate.getGateNo());
+
     }
 
     public void dock() {
         System.out.printf("[%s]: Plane %d has docked at Gate %d.\n", Thread.currentThread().getName(), this.planeNo,
                 assignedGate.getGateNo());
+        nextAction = "Idle";
         runway.releaseRunway();
 
         assignedGate.setDockedPlane(this);
         assignedGate.setOccupied(true);
 
+        try {
+            refuelRequestQueue.put(this);
+            System.out.printf("[%s]: Plane %d at Gate %d has requested refuelling. \n",
+                    Thread.currentThread().getName(),
+                    this.planeNo,
+                    assignedGate.getGateNo());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        synchronized (assignedGate) {
+            assignedGate.notifyAll(); // wake the gate’s service crew
+        }
         synchronized (this) {
             notifyAll(); // Notify passengers that the plane has docked and they can disembark
         }
@@ -99,6 +149,11 @@ public class Airplane implements Runnable {
     }
 
     public void waitUntilReadyForTakeoff() {
+        System.out.printf("[%s]: Plane %d is waiting until it is ready for takeoff. (Service, Refuel, Boarding)\n",
+                Thread.currentThread().getName(), this.planeNo);
+
+        nextAction = "Takeoff";
+
         synchronized (this) {
             while (!isReadyForTakeoff()) {
                 try {
@@ -108,6 +163,37 @@ public class Airplane implements Runnable {
                 }
             }
         }
+
+        System.out.printf("[%s]: Plane %d is ready for takeoff!\n", Thread.currentThread().getName(), this.planeNo);
+        nextAction = "Ready for Takeoff";
+    }
+
+    public void requestTakeoff() {
+        try {
+            runwayRequestsQueue.put(this);
+            System.out.printf("[%s]: Plane %d requesting to take off\n",
+                    Thread.currentThread().getName(),
+                    this.planeNo);
+
+            nextAction = "Takeoff";
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public void takeoff() {
+        try {
+            Thread.sleep(1000); // Simulate time taken to take off
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        System.out.printf("[%s]: Plane %d has taken off from Gate %d.\n", Thread.currentThread().getName(),
+                this.planeNo,
+                assignedGate.getGateNo());
+        assignedGate.setOccupied(false);
+        assignedGate.setDockedPlane(null);
     }
 
     @Override
@@ -127,6 +213,10 @@ public class Airplane implements Runnable {
         dock();
 
         waitUntilReadyForTakeoff();
+
+        requestTakeoff();
+        takeoff();
+        return;
     }
 
     // GETTERS & SETTERS
