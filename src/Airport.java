@@ -29,7 +29,7 @@ public class Airport {
         // Start 6 planes
         for (int i = 1; i <= 3; i++) {
             try {
-                Thread.sleep(rand.nextInt(5001)); // Random delay between 0 to 2 seconds
+                Thread.sleep(rand.nextInt(1)); // Random delay between 0 to 2 seconds
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

@@ -61,7 +61,7 @@ public class RefuellingTruck implements Runnable {
 
         currentGate.getDockedPlane().setRefuelled(true);
         synchronized (airplaneToRefuel) {
-            airplaneToRefuel.notifyAll(); // Need to notify so plane rechecks condition
+            airplaneToRefuel.notifyAll(); // Notify plane that refuelling is complete
         }
     }
 

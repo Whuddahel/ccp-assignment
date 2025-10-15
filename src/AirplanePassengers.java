@@ -23,7 +23,7 @@ public class AirplanePassengers implements Runnable {
     // METHODS
     public void disembarkAirplane() {
         try {
-            Thread.sleep(1000); // Simulate time taken for passengers to disembark and board
+            Thread.sleep(1000); 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -41,7 +41,7 @@ public class AirplanePassengers implements Runnable {
 
     public void boardAirplane() {
         try {
-            Thread.sleep(1000); // Simulate time taken for passengers to disembark and board
+            Thread.sleep(1000); 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

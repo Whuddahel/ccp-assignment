@@ -13,7 +13,8 @@ public class Airplane implements Runnable {
     private final ATC atc;
     private final BlockingQueue<Airplane> runwayRequestsQueue;
     private final BlockingQueue<Airplane> refuelRequestQueue;
-    private String nextAction; // Literally just used for nicer print statements, oh, and emerg landing too
+    private String nextAction; // Literally just used for nicer print statements
+    private int priority; // 100 = waiting emerg, 99 = emerg landing, 1 = waiting, 0 = newcomer
 
     // GETTERS & SETTERS
     public int getPlaneNo() {
@@ -60,6 +61,14 @@ public class Airplane implements Runnable {
         this.nextAction = status;
     }
 
+    public int getPriority() {
+        return priority;
+    }
+
+    public void setPriority(int priority) {
+        this.priority = priority;
+    }
+
     // CONSTRUCTOR
     public Airplane(int id, Runway runway, BlockingQueue<Airplane> runwayRequestsQueue,
             BlockingQueue<Airplane> refuelRequestQueue, String nextAction, ATC atc) {
@@ -69,6 +78,11 @@ public class Airplane implements Runnable {
         this.refuelRequestQueue = refuelRequestQueue;
         this.nextAction = nextAction;
         this.atc = atc;
+        if (nextAction.equals("Emergency Landing")) {
+            this.priority = 99;
+        } else {
+            this.priority = 0;
+        }
 
         this.passengers = new AirplanePassengers(this);
         new Thread(passengers, "Plane " + id + "'s Passengers").start();
@@ -85,7 +99,7 @@ public class Airplane implements Runnable {
 
         try {
             runwayRequestsQueue.put(this);
-            synchronized(atc) {
+            synchronized (atc) {
                 atc.notifyAll(); // Notify ATC that a plane is requesting to land
             }
         } catch (InterruptedException e) {
@@ -98,15 +112,15 @@ public class Airplane implements Runnable {
 
     public void land() {
         try {
-            Thread.sleep(1000); // Simulate time taken to land
+            Thread.sleep(10000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
         System.out.printf("[%s]: Plane %d has landed.\n", Thread.currentThread().getName(), this.planeNo);
 
+        setPriority(0); 
         nextAction = "Landed";
-
     }
 
     public void coastToGate() {
@@ -119,7 +133,6 @@ public class Airplane implements Runnable {
 
         System.out.printf("[%s]: Plane %d is coasting to Gate %d.\n", Thread.currentThread().getName(), this.planeNo,
                 assignedGate.getGateNo());
-
     }
 
     public void dock() {
@@ -148,6 +161,9 @@ public class Airplane implements Runnable {
         synchronized (this) {
             notifyAll(); // Notify passengers that the plane has docked and they can disembark
         }
+        synchronized (atc) {
+            atc.notifyAll(); // Notify ATC that the runway is free
+        }
     }
 
     public boolean isReadyForTakeoff() {
@@ -161,7 +177,7 @@ public class Airplane implements Runnable {
         synchronized (this) {
             while (!isReadyForTakeoff()) {
                 try {
-                    wait(); // Block until ground crew signals that the plane is ready for takeoff
+                    wait(); // Either Passengers/ServiceCrew/RefuelTruck will notify when done
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                 }
@@ -175,7 +191,7 @@ public class Airplane implements Runnable {
     public void requestTakeoff() {
         try {
             runwayRequestsQueue.put(this);
-            synchronized(atc) {
+            synchronized (atc) {
                 atc.notifyAll(); // Notify ATC that a plane is requesting to take off
             }
             System.out.printf("[%s]: Plane %d requesting to take off\n",
@@ -196,17 +212,18 @@ public class Airplane implements Runnable {
             Thread.currentThread().interrupt();
         }
 
-        synchronized(atc) {
-            atc.notifyAll(); // Notify ATC that the plane has taken off
-        }
         System.out.printf("[%s]: Plane %d has taken off from Gate %d.\n", Thread.currentThread().getName(),
                 this.planeNo,
                 assignedGate.getGateNo());
-        
+
         runway.releaseRunway();
         assignedGate.setReserved(false);
         assignedGate.setOccupied(false);
         assignedGate.setDockedPlane(null);
+
+        synchronized (atc) {
+            atc.notifyAll(); // Notify ATC that the plane has taken off
+        }
     }
 
     @Override
@@ -231,6 +248,4 @@ public class Airplane implements Runnable {
         takeoff();
         return;
     }
-
-    // GETTERS & SETTERS
 }
