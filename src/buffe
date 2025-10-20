@@ -1,0 +1,164 @@
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+
+public class ATC implements Runnable {
+    private Runway runway;
+    private Gate[] gates;
+    private BlockingQueue<Airplane> runwayRequestsQueue;
+    private BlockingQueue<Airplane> waitingQueue = new ArrayBlockingQueue<>(10); // For FCFS order
+    private boolean emergencyLogged = false;
+
+    // GETTERS & SETTERS
+    // CONSTRUCTOR
+    public ATC(Runway runway, BlockingQueue<Airplane> runwayRequestsQueue, Gate[] gates) {
+        this.runway = runway;
+        this.runwayRequestsQueue = runwayRequestsQueue;
+        this.gates = gates;
+    }
+
+    // METHODS
+
+    private boolean isPlaneResourceFree(Airplane airplane) {
+        boolean needsGate = airplane.getNextAction().equals("Landing") ||
+                airplane.getNextAction().equals("Emergency Landing");
+        if (needsGate) {
+            return runway.isRunwayAvailable() && findFreeGate() != null;
+        } else if (airplane.getNextAction().equals("Takeoff")) {
+            return runway.isRunwayAvailable();
+        }
+
+        return false;
+    }
+
+    private Airplane findEmergencyAirplane() {
+        for (Airplane airplane : runwayRequestsQueue) {
+            if (airplane.getNextAction().equals("Emergency Landing")) {
+                if (!emergencyLogged) {
+                    System.out.printf("[%s]: EMERGENCY LANDING DETECTED. Plane %d will be the next plane to land.\n",
+                            Thread.currentThread().getName(),
+                            airplane.getPlaneNo());
+                    emergencyLogged = true;
+                }
+                runwayRequestsQueue.remove(airplane);
+                return airplane;
+            }
+        }
+        for (Airplane airplane : waitingQueue) {
+            if (airplane.getNextAction().equals("Emergency Landing")) {
+                if (!emergencyLogged) {
+                    System.out.printf("[%s]: EMERGENCY LANDING DETECTED. Plane %d will be the next plane to land.\n",
+                            Thread.currentThread().getName(),
+                            airplane.getPlaneNo());
+                    emergencyLogged = true;
+                }
+                waitingQueue.remove(airplane);
+                return airplane;
+            }
+        }
+        return null;
+    }
+
+    private void moveAllToWaitingQueue() {
+        Airplane airplane = null;
+        while ((airplane = runwayRequestsQueue.poll()) != null) {
+            synchronized (waitingQueue) {
+                try {
+                    if (!airplane.isQueuedLogged()) {
+                        System.out.printf(
+                                "[%s]: Permission denied for Plane %d. Other planes are being processed - moved to waiting queue.\n",
+                                Thread.currentThread().getName(),
+                                airplane.getPlaneNo());
+                        airplane.setQueuedLogged(true);
+                    }
+                    waitingQueue.put(airplane);
+
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    Thread.currentThread().interrupt();
+                }
+            }
+
+        }
+    }
+
+    private Gate findFreeGate() {
+        for (Gate gate : gates) {
+            if (!gate.isReserved()) {
+                return gate;
+            }
+        }
+        return null;
+    }
+
+    private void processNextPlane() throws InterruptedException {
+        Airplane nextAirplane = findEmergencyAirplane();
+
+        if (nextAirplane == null) {
+            nextAirplane = waitingQueue.poll();
+            if (nextAirplane == null) {
+                nextAirplane = runwayRequestsQueue.take(); // Block until a plane arrives
+            }
+        }
+
+        if (nextAirplane == null) {
+            return; // No planes to process
+        }
+
+        if (isPlaneResourceFree(nextAirplane)) {
+            if (nextAirplane.getNextAction().equals("Emergency Landing")
+                    || nextAirplane.getNextAction().equals("Landing")) {
+                Gate assignedGate = findFreeGate();
+                if (assignedGate != null) {
+                    assignedGate.setReserved(true);
+                }
+                nextAirplane.setAssignedGate(assignedGate);
+            }
+
+            runway.acquireRunway(); // Acquire runway for the plane
+            if (nextAirplane.getNextAction().equals("Emergency Landing")
+                    || nextAirplane.getNextAction().equals("Landing")) {
+                System.out.printf("[%s]: %s Permission Granted to Plane %d. Assigned Gate: %d\n",
+                        Thread.currentThread().getName(),
+                        nextAirplane.getNextAction(), nextAirplane.getPlaneNo(),
+                        nextAirplane.getAssignedGate().getGateNo());
+
+            } else if (nextAirplane.getNextAction().equals("Takeoff")) {
+                System.out.printf("[%s]: %s Permission Granted to Plane %d.\n", Thread.currentThread().getName(),
+                        nextAirplane.getNextAction(), nextAirplane.getPlaneNo());
+            }
+
+            synchronized (nextAirplane) {
+                nextAirplane.notifyAll();
+            }
+        } else {
+            if (!nextAirplane.isQueuedLogged()) {
+                System.out.printf(
+                        "[%s]: %s Permission Denied to Plane %d. Next in Queue, but resources(runway, gates) are not available.\n",
+                        Thread.currentThread().getName(),
+                        nextAirplane.getNextAction(), nextAirplane.getPlaneNo());
+                nextAirplane.setQueuedLogged(true);
+            }
+            waitingQueue.put(nextAirplane);
+
+        }
+        moveAllToWaitingQueue();
+
+    }
+
+    @Override
+    public void run() {
+        while (true) {
+            try {
+                processNextPlane();
+                Thread.sleep(100); // Just to smooth console output
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                Thread.currentThread().interrupt();
+            }
+        }
+
+    }
+
+}
