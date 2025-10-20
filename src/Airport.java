@@ -27,14 +27,14 @@ public class Airport {
         refuellingTruckThread.start();
 
         // Start 6 planes
-        for (int i = 1; i <= 3; i++) {
+        for (int i = 1; i <= 6; i++) {
             try {
-                Thread.sleep(rand.nextInt(1)); // Random delay between 0 to 2 seconds
+                Thread.sleep(rand.nextInt(3000)); // Random delay between 0 to 2 seconds
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
 
-            if (i == 3) {
+            if (i == 5) {
                 new Thread(new Airplane(i, runway, landingQueue, refuelRequestQueue, "Emergency Landing", atc),
                         "Plane-" + i).start();
             } else {

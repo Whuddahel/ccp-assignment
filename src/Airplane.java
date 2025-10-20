@@ -14,7 +14,7 @@ public class Airplane implements Runnable {
     private final BlockingQueue<Airplane> runwayRequestsQueue;
     private final BlockingQueue<Airplane> refuelRequestQueue;
     private String nextAction; // Literally just used for nicer print statements
-    private int priority; // 100 = waiting emerg, 99 = emerg landing, 1 = waiting, 0 = newcomer
+    private boolean isQueuedLogged = false;
 
     // GETTERS & SETTERS
     public int getPlaneNo() {
@@ -61,12 +61,12 @@ public class Airplane implements Runnable {
         this.nextAction = status;
     }
 
-    public int getPriority() {
-        return priority;
+    public boolean isQueuedLogged() {
+        return isQueuedLogged;
     }
 
-    public void setPriority(int priority) {
-        this.priority = priority;
+    public void setQueuedLogged(boolean isQueuedLogged) {
+        this.isQueuedLogged = isQueuedLogged;
     }
 
     // CONSTRUCTOR
@@ -78,11 +78,6 @@ public class Airplane implements Runnable {
         this.refuelRequestQueue = refuelRequestQueue;
         this.nextAction = nextAction;
         this.atc = atc;
-        if (nextAction.equals("Emergency Landing")) {
-            this.priority = 99;
-        } else {
-            this.priority = 0;
-        }
 
         this.passengers = new AirplanePassengers(this);
         new Thread(passengers, "Plane " + id + "'s Passengers").start();
@@ -112,21 +107,20 @@ public class Airplane implements Runnable {
 
     public void land() {
         try {
-            Thread.sleep(10000);
+            Thread.sleep(2000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
         System.out.printf("[%s]: Plane %d has landed.\n", Thread.currentThread().getName(), this.planeNo);
 
-        setPriority(0); 
         nextAction = "Landed";
     }
 
     public void coastToGate() {
         try {
             nextAction = "Docking";
-            Thread.sleep(1000); // Simulate time taken to coast to gate
+            Thread.sleep(2000); // Simulate time taken to coast to gate
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -145,7 +139,7 @@ public class Airplane implements Runnable {
         assignedGate.setOccupied(true);
 
         try {
-            Thread.sleep(1000); // Simulate time taken to dock
+            Thread.sleep(2000); // Simulate time taken to dock
             refuelRequestQueue.put(this);
             System.out.printf("[%s]: Plane %d at Gate %d has requested refuelling. \n",
                     Thread.currentThread().getName(),
