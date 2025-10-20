@@ -23,7 +23,7 @@ public class AirplanePassengers implements Runnable {
     // METHODS
     public void disembarkAirplane() {
         try {
-            Thread.sleep(1000); 
+            Thread.sleep(2000); 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -41,7 +41,7 @@ public class AirplanePassengers implements Runnable {
 
     public void boardAirplane() {
         try {
-            Thread.sleep(1000); 
+            Thread.sleep(2000); 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

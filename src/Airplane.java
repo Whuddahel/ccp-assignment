@@ -184,15 +184,20 @@ public class Airplane implements Runnable {
 
     public void requestTakeoff() {
         try {
-            runwayRequestsQueue.put(this);
-            synchronized (atc) {
-                atc.notifyAll(); // Notify ATC that a plane is requesting to take off
-            }
             System.out.printf("[%s]: Plane %d requesting to take off\n",
                     Thread.currentThread().getName(),
                     this.planeNo);
 
+            runwayRequestsQueue.put(this);
+            // synchronized (atc) {
+            // atc.notifyAll(); // Notify ATC that a plane is requesting to take off
+            // }
+
             nextAction = "Takeoff";
+
+            synchronized (this) {
+                wait(); // Wait until ATC grants permission to take off
+            }
         } catch (InterruptedException e) {
             e.printStackTrace();
             Thread.currentThread().interrupt();
@@ -201,7 +206,7 @@ public class Airplane implements Runnable {
 
     public void takeoff() {
         try {
-            Thread.sleep(1000); // Simulate time taken to take off
+            Thread.sleep(2000); // Simulate time taken to take off
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }

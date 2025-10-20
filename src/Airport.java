@@ -15,7 +15,7 @@ public class Airport {
         Gate gate2 = new Gate(2);
         Gate gate3 = new Gate(3);
 
-        Gate[] gates = { gate1, gate2 };
+        Gate[] gates = { gate1, gate2, gate3};
 
         ATC atc = new ATC(runway, landingQueue, gates);
 
@@ -29,7 +29,7 @@ public class Airport {
         // Start 6 planes
         for (int i = 1; i <= 6; i++) {
             try {
-                Thread.sleep(rand.nextInt(3000)); // Random delay between 0 to 2 seconds
+                Thread.sleep(rand.nextInt(2000)); // Random delay between 0 to 2 seconds
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }

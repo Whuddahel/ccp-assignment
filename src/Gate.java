@@ -46,18 +46,4 @@ public class Gate {
         new Thread(serviceCrew, "Gate " + gateNo + "'s Service Crew").start();
     }
 
-    // METHODS
-    // public void requestRefuel() {
-    // try {
-    // refuelRequestQueue.put(this);
-    // System.out.printf("[%s]: Gate %d has requested refuelling for the docked
-    // Plane %d. \n",
-    // Thread.currentThread().getName(),
-    // gateNo,
-    // dockedPlane.getPlaneNo());
-    // } catch (InterruptedException e) {
-    // Thread.currentThread().interrupt();
-    // }
-    // }
-
 }
