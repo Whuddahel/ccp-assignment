@@ -5,6 +5,7 @@ public class AirplanePassengers implements Runnable {
 
     private final Airplane airplane;
     private int passengerCount;
+    private final ATC atc;
 
     // GETTERS & SETTERS
     public int getPassengerCount() {
@@ -16,19 +17,20 @@ public class AirplanePassengers implements Runnable {
     }
 
     // CONSTRUCTOR
-    public AirplanePassengers(Airplane airplane) {
+    public AirplanePassengers(Airplane airplane, ATC atc) {
         this.airplane = airplane;
+        this.atc = atc;
     }
 
     // METHODS
     public void disembarkAirplane() {
         try {
-            Thread.sleep(2000); 
+            Thread.sleep(2000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        passengerCount = rand.nextInt(10, 100);
+        passengerCount = rand.nextInt(1, 50);
 
         System.out.printf("[%s]: %d Passengers are disembarking from Plane %d at Gate %d. \n",
                 Thread.currentThread().getName(),
@@ -36,17 +38,18 @@ public class AirplanePassengers implements Runnable {
                 airplane.getPlaneNo(),
                 airplane.getAssignedGate().getGateNo());
 
+        atc.addDisembarkedPassengers(passengerCount);
         airplane.setBoarded(false);
     }
 
     public void boardAirplane() {
         try {
-            Thread.sleep(2000); 
+            Thread.sleep(2000);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
-        passengerCount = rand.nextInt(10, 100);
+        passengerCount = rand.nextInt(1, 50);
 
         System.out.printf("[%s]: %d Passengers are boarding Plane %d at Gate %d. \n",
                 Thread.currentThread().getName(),
@@ -54,6 +57,7 @@ public class AirplanePassengers implements Runnable {
                 airplane.getPlaneNo(),
                 airplane.getAssignedGate().getGateNo());
 
+        atc.addBoardedPassengers(passengerCount);
         airplane.setBoarded(true);
         synchronized (airplane) {
             airplane.notifyAll(); // Notify the airplane that boarding is complete
@@ -76,6 +80,7 @@ public class AirplanePassengers implements Runnable {
         disembarkAirplane();
 
         boardAirplane();
+        return;
     }
 
 }

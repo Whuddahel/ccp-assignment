@@ -8,7 +8,17 @@ public class Gate {
 
     private GateServiceCrew serviceCrew;
 
+    private Thread serviceCrewThread;
+
     // GETTERS & SETTERS
+    public GateServiceCrew getServiceCrew() {
+        return serviceCrew;
+    }
+
+    public Thread getServiceCrewThread() {
+        return serviceCrewThread;
+    }
+
     public int getGateNo() {
         return gateNo;
     }
@@ -43,7 +53,8 @@ public class Gate {
         this.isOccupied = false;
 
         this.serviceCrew = new GateServiceCrew(this);
-        new Thread(serviceCrew, "Gate " + gateNo + "'s Service Crew").start();
+        this.serviceCrewThread = new Thread(serviceCrew, "Gate " + gateNo + "'s Service Crew");
+        serviceCrewThread.start();
     }
 
 }

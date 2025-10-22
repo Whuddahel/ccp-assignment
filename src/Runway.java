@@ -4,9 +4,7 @@ public class Runway {
     private final Semaphore runwayLock = new Semaphore(1);
 
     // GETTERS & SETTERS
-    
     // CONSTRUCTOR
-
     // METHODS
     public void acquireRunway() throws InterruptedException {
 

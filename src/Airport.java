@@ -6,6 +6,7 @@ public class Airport {
 
     public static void main(String[] args) {
         Random rand = new Random();
+        int airplaneCount = 6;
 
         Runway runway = new Runway();
         BlockingQueue<Airplane> landingQueue = new ArrayBlockingQueue<>(10);
@@ -15,10 +16,9 @@ public class Airport {
         Gate gate2 = new Gate(2);
         Gate gate3 = new Gate(3);
 
-        Gate[] gates = { gate1, gate2, gate3};
+        Gate[] gates = { gate1, gate2, gate3 };
 
-        ATC atc = new ATC(runway, landingQueue, gates);
-
+        ATC atc = new ATC(runway, landingQueue, gates, airplaneCount);
         Thread atcThread = new Thread(atc, "ATC");
         atcThread.start();
 
@@ -26,10 +26,10 @@ public class Airport {
         Thread refuellingTruckThread = new Thread(refuellingTruck, "Refuelling Truck");
         refuellingTruckThread.start();
 
-        // Start 6 planes
-        for (int i = 1; i <= 6; i++) {
+        // Start 6 planes, 5th is emerg
+        for (int i = 1; i <= airplaneCount; i++) {
             try {
-                Thread.sleep(rand.nextInt(2000)); // Random delay between 0 to 2 seconds
+                Thread.sleep(rand.nextInt(2001)); // Random delay between 0 to 2 seconds
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
@@ -42,5 +42,20 @@ public class Airport {
                         .start();
             }
         }
+
+        try {
+            atcThread.join();
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        gate1.getServiceCrew().killMyself();
+        gate2.getServiceCrew().killMyself();
+        gate3.getServiceCrew().killMyself();
+
+        refuellingTruck.killMyself();
+        refuellingTruckThread.interrupt();
+
     }
 }

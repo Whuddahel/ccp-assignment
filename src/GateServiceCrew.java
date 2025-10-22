@@ -1,6 +1,7 @@
 public class GateServiceCrew implements Runnable {
     private final Gate gate;
     private Airplane assignedPlane;
+    private volatile boolean running = true;
 
     // GETTERS & SETTERS
     // CONSTRUCTOR
@@ -9,6 +10,13 @@ public class GateServiceCrew implements Runnable {
     }
 
     // METHODS
+    public void killMyself() {
+        running = false;
+        synchronized (gate) {
+            gate.notifyAll(); // Won't actually matter, the only thread waiting here is the crew itself
+        }
+    }
+
     public void servicePlane() {
 
         System.out.printf("[%s]: Gate %d's service crew is servicing Plane %d. \n",
@@ -36,7 +44,7 @@ public class GateServiceCrew implements Runnable {
     @Override
     public void run() {
         synchronized (gate) {
-            while (true) {
+            while (running) {
                 assignedPlane = gate.getDockedPlane();
                 if (assignedPlane != null && gate.isOccupied() && !assignedPlane.isServiced()) {
                     servicePlane();
@@ -44,10 +52,15 @@ public class GateServiceCrew implements Runnable {
                 try {
                     gate.wait();
                 } catch (InterruptedException e) {
+                    if (!running) {
+                        break;
+                    }
                     Thread.currentThread().interrupt();
                 }
             }
         }
+        System.out.println("Gate Service Crew at Gate " + gate.getGateNo() + " is terminating.");
+        return;
     }
 
 }

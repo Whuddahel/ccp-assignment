@@ -7,6 +7,8 @@ public class RefuellingTruck implements Runnable {
     private BlockingQueue<Airplane> refuelRequestQueue;
     private Airplane airplaneToRefuel;
 
+    private volatile boolean running = true;
+
     // GETTERS & SETTERS
     // CONSTRUCTOR
     public RefuellingTruck(BlockingQueue<Airplane> refuelRequestQueue, Gate currentGate) {
@@ -15,6 +17,10 @@ public class RefuellingTruck implements Runnable {
     }
 
     // METHODS
+    public void killMyself() {
+        running = false;
+        Thread.currentThread().interrupt(); // Possibility for thread to be waiting on BlockingQueue.take()
+    }
     public void moveToGate() {
 
         if (currentGate != airplaneToRefuel.getAssignedGate()) {
@@ -85,8 +91,13 @@ public class RefuellingTruck implements Runnable {
                 refuelPlane();
                 releaseRefuellingTruck();
             } catch (InterruptedException e) {
+                if (!running) {
+                    break;
+                }
                 Thread.currentThread().interrupt();
             }
         }
+        System.out.println("Refuelling Truck is terminating.");
+        return;
     }
 }
