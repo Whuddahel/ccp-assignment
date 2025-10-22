@@ -354,7 +354,8 @@ public class ATC implements Runnable {
 
         System.out.printf("[%s]: Average plane waiting time: %.2f ms\n", Thread.currentThread().getName(), averageWait);
         System.out.printf("[%s]: Maximum plane waiting time: %.2f ms\n", Thread.currentThread().getName(), maxWait);
-        System.out.printf("[%s]: Minimum plane waiting time: %.2f ms\n", Thread.currentThread().getName(), minNonZero);
+        System.out.printf("[%s]: Minimum non-zerp plane waiting time: %.2f ms\n", Thread.currentThread().getName(),
+                minNonZero);
 
         System.out.println(
                 "**************************************************************************************************");
