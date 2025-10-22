@@ -167,9 +167,9 @@ public class ATC implements Runnable {
                 && allGatesFree();
     }
 
-    private void requeueFront(BlockingQueue<Airplane> queue, Airplane airplane) { // Use to prioritise emergency planes
+    private void requeueFront(BlockingQueue<Airplane> queue, Airplane airplane) { // Use to prioritize emergency planes
         synchronized (queue) {
-            List<Airplane> temp = new LinkedList<>(); // I learnt linked list in DSTR, so imma gon use it
+            List<Airplane> temp = new LinkedList<>(); // I learnt linked list in DSTR, so I'm gonna use it
             queue.drainTo(temp);
             queue.clear();
             queue.add(airplane);

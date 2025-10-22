@@ -46,8 +46,8 @@ public class Airport {
         try {
             atcThread.join();
         } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
+            Thread.currentThread().interrupt();
         }
 
         gate1.getServiceCrew().killMyself();
