@@ -1,3 +1,4 @@
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 
 public class Airplane implements Runnable {
@@ -11,7 +12,7 @@ public class Airplane implements Runnable {
 
     private final Runway runway;
     private final ATC atc;
-    private final BlockingQueue<Airplane> runwayRequestsQueue;
+    private final List<Airplane> runwayRequestsQueue;
     private final BlockingQueue<Airplane> refuelRequestQueue;
     private String nextAction; // Literally just used for nicer print statements
     private boolean isQueuedLogged = false;
@@ -74,7 +75,7 @@ public class Airplane implements Runnable {
     }
 
     // CONSTRUCTOR
-    public Airplane(int id, Runway runway, BlockingQueue<Airplane> runwayRequestsQueue,
+    public Airplane(int id, Runway runway, List<Airplane> runwayRequestsQueue,
             BlockingQueue<Airplane> refuelRequestQueue, String nextAction, ATC atc) {
         this.planeNo = id;
         this.runway = runway;
@@ -108,18 +109,11 @@ public class Airplane implements Runnable {
             System.out.printf("[%s]: Plane %d requesting to land.\n", Thread.currentThread().getName(), this.planeNo);
         }
 
-        try {
-            markRequestTime();
-            runwayRequestsQueue.put(this);
-            synchronized (atc) {
-                atc.notifyAll(); // Notify ATC that a plane is requesting to land
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            System.out.printf("[%s]: Plane %d was interrupted while requesting to land.\n",
-                    Thread.currentThread().getName(), this.planeNo);
+        markRequestTime();
+        synchronized (runwayRequestsQueue) {
+            runwayRequestsQueue.add(this);
+            runwayRequestsQueue.notifyAll(); // Notify ATC that a plane is requesting to land
         }
-
     }
 
     public void land() {
@@ -206,9 +200,9 @@ public class Airplane implements Runnable {
                     this.planeNo);
 
             markRequestTime();
-            runwayRequestsQueue.put(this);
-            synchronized (atc) {
-                atc.notifyAll(); // Notify ATC that a plane is requesting to take off
+            synchronized (runwayRequestsQueue) {
+                runwayRequestsQueue.add(this);
+                runwayRequestsQueue.notifyAll(); // Notify ATC that a plane is requesting to take off
             }
 
             nextAction = "Takeoff";

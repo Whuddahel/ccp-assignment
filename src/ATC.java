@@ -9,8 +9,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ATC implements Runnable {
     private Runway runway;
     private Gate[] gates;
-    private BlockingQueue<Airplane> runwayRequestsQueue;
-    private BlockingQueue<Airplane> waitingQueue = new ArrayBlockingQueue<>(10); // For FCFS order
+    private List<Airplane> runwayRequestsQueue;
+    private List<Airplane> waitingQueue = new ArrayList<>(); // For FCFS order
     private boolean emergencyLogged = false; // Added to prevent spamming emergency logs
 
     // For sanity check
@@ -26,7 +26,7 @@ public class ATC implements Runnable {
     // GETTERS & SETTERS
 
     // CONSTRUCTOR
-    public ATC(Runway runway, BlockingQueue<Airplane> runwayRequestsQueue, Gate[] gates, int totalAirplanes) {
+    public ATC(Runway runway, List<Airplane> runwayRequestsQueue, Gate[] gates, int totalAirplanes) {
         this.runway = runway;
         this.runwayRequestsQueue = runwayRequestsQueue;
         this.gates = gates;
@@ -55,91 +55,105 @@ public class ATC implements Runnable {
     }
 
     private Airplane findEmergencyAirplane() {
-        for (Airplane airplane : runwayRequestsQueue) {
-            if (airplane.getNextAction().equals("Emergency Landing")) {
-                if (!emergencyLogged) {
-                    System.out.printf("[%s]: EMERGENCY LANDING DETECTED. Plane %d will be the next plane to land.\n",
-                            Thread.currentThread().getName(),
-                            airplane.getPlaneNo());
-                    emergencyLogged = true;
+        synchronized (runwayRequestsQueue) {
+            for (Airplane airplane : runwayRequestsQueue) {
+                if (airplane.getNextAction().equals("Emergency Landing")) {
+                    if (!emergencyLogged) {
+                        System.out.printf(
+                                "[%s]: EMERGENCY LANDING DETECTED in request queue. Plane %d will be the next plane to land.\n",
+                                Thread.currentThread().getName(),
+                                airplane.getPlaneNo());
+                        emergencyLogged = true;
+                    }
+                    // runwayRequestsQueue.remove(airplane);
+                    requeueFront(waitingQueue, airplane);
+                    return airplane;
                 }
-                runwayRequestsQueue.remove(airplane);
-                requeueFront(waitingQueue, airplane);
-                return airplane;
             }
         }
-        for (Airplane airplane : waitingQueue) { // Technically don't need this, all it ever will do it make sure emerg
-                                                 // planes stay at the front.
-            if (airplane.getNextAction().equals("Emergency Landing")) {
-                if (!emergencyLogged) {
-                    System.out.printf("[%s]: EMERGENCY LANDING DETECTED. Plane %d will be the next plane to land.\n",
-                            Thread.currentThread().getName(),
-                            airplane.getPlaneNo());
-                    emergencyLogged = true;
+
+        synchronized (waitingQueue) {
+            for (Airplane airplane : waitingQueue) { // Technically don't need this, all it ever will do it make sure
+                                                     // emerg
+                                                     // planes stay at the front.
+                if (airplane.getNextAction().equals("Emergency Landing")) {
+                    if (!emergencyLogged) {
+                        System.out.printf(
+                                "[%s]: EMERGENCY LANDING DETECTED in waiting queue. Plane %d will be the next plane to land.\n",
+                                Thread.currentThread().getName(),
+                                airplane.getPlaneNo());
+                        emergencyLogged = true;
+                    }
+                    // waitingQueue.remove(airplane);
+                    requeueFront(waitingQueue, airplane);
+                    return airplane;
                 }
-                waitingQueue.remove(airplane);
-                requeueFront(waitingQueue, airplane);
-                return airplane;
             }
         }
         return null;
     }
 
     private Airplane findNextTakeoffAirplane() {
-        for (Airplane airplane : waitingQueue) {
-            if (airplane.getNextAction().equals("Takeoff")) {
-                // System.out.println("Found takeoff airplane in waiting queue: " +
-                // airplane.getPlaneNo());
-                waitingQueue.remove(airplane);
-                requeueFront(waitingQueue, airplane);
-                return airplane;
+        synchronized (waitingQueue) {
+            for (Airplane airplane : waitingQueue) {
+                if (airplane.getNextAction().equals("Takeoff")) {
+                    // System.out.println("Found takeoff airplane in waiting queue: " +
+                    // airplane.getPlaneNo());
+                    waitingQueue.remove(airplane);
+                    requeueFront(waitingQueue, airplane);
+                    return airplane;
+                }
             }
         }
         return null;
     }
 
     private void dumpQueues(String when) {
-        // snapshot arrays to avoid ConcurrentModification noise
-        Object[] mainArr = runwayRequestsQueue.toArray();
-        Object[] waitArr = waitingQueue.toArray();
+        synchronized (runwayRequestsQueue) {
+            synchronized (waitingQueue) {
+                Object[] mainArr = runwayRequestsQueue.toArray();
+                Object[] waitArr = waitingQueue.toArray();
 
-        StringBuilder sb = new StringBuilder();
-        sb.append(String.format("[%s]: QUEUE DUMP (%s) — MainQueue(size=%d): ",
-                Thread.currentThread().getName(), when, mainArr.length));
-        for (Object o : mainArr) {
-            Airplane p = (Airplane) o;
-            sb.append(String.format("%d(%s), ", p.getPlaneNo(), p.getNextAction()));
+                StringBuilder sb = new StringBuilder();
+                sb.append(String.format("[%s]: QUEUE DUMP (%s) — MainQueue(size=%d): ",
+                        Thread.currentThread().getName(), when, mainArr.length));
+                for (Object o : mainArr) {
+                    Airplane p = (Airplane) o;
+                    sb.append(String.format("%d(%s), ", p.getPlaneNo(), p.getNextAction()));
+                }
+
+                sb.append(String.format(" || WaitingQueue(size=%d): ",
+                        waitArr.length));
+                for (Object o : waitArr) {
+                    Airplane p = (Airplane) o;
+                    sb.append(String.format("%d(%s), ", p.getPlaneNo(), p.getNextAction()));
+                }
+
+                System.out.println(sb.toString());
+            }
         }
-
-        sb.append(String.format(" || WaitingQueue(size=%d): ",
-                waitArr.length));
-        for (Object o : waitArr) {
-            Airplane p = (Airplane) o;
-            sb.append(String.format("%d(%s), ", p.getPlaneNo(), p.getNextAction()));
-        }
-
-        System.out.println(sb.toString());
     }
 
     private void moveAllToWaitingQueue() { // Ensure all planes are responded to immediately upon entry
         Airplane airplane = null;
-        while ((airplane = runwayRequestsQueue.poll()) != null) {
-            try {
-                if (!airplane.isQueuedLogged()) {
-                    System.out.printf(
-                            "[%s]: Permission denied for Plane %d. Other planes are being processed - moved to waiting queue.\n",
-                            Thread.currentThread().getName(),
-                            airplane.getPlaneNo());
-                    airplane.setQueuedLogged(true);
+        synchronized (runwayRequestsQueue) {
+            synchronized (waitingQueue) {
+                while (!runwayRequestsQueue.isEmpty()) {
+                    airplane = runwayRequestsQueue.remove(0);
+                    if (!airplane.isQueuedLogged()) {
+                        System.out.printf(
+                                "[%s]: Permission denied for Plane %d. Other planes are being processed - moved to waiting queue.\n",
+                                Thread.currentThread().getName(),
+                                airplane.getPlaneNo());
+                        airplane.setQueuedLogged(true);
+                    }
+                    waitingQueue.add(airplane);
                 }
-                waitingQueue.put(airplane);
-
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-                Thread.currentThread().interrupt();
+                runwayRequestsQueue.notifyAll();
+                waitingQueue.notifyAll();
             }
-
         }
+
     }
 
     private Gate findFreeGate() {
@@ -161,47 +175,54 @@ public class ATC implements Runnable {
     }
 
     public boolean simulationCompleted() {
-        return runwayRequestsQueue.isEmpty()
-                && waitingQueue.isEmpty()
-                && runway.isRunwayAvailable()
-                && allGatesFree();
+        synchronized (runwayRequestsQueue) {
+            synchronized (waitingQueue) {
+                return runwayRequestsQueue.isEmpty()
+                        && waitingQueue.isEmpty()
+                        && runway.isRunwayAvailable()
+                        && allGatesFree();
+            }
+        }
     }
 
-    private void requeueFront(BlockingQueue<Airplane> queue, Airplane airplane) { // Use to prioritize emergency planes
+    private void requeueFront(List<Airplane> queue, Airplane airplane) { // Use to prioritize emergency planes
         synchronized (queue) {
-            List<Airplane> temp = new LinkedList<>(); // I learnt linked list in DSTR, so I'm gonna use it
-            queue.drainTo(temp);
-            queue.clear();
-            queue.add(airplane);
-            queue.addAll(temp);
+            queue.remove(airplane);
+            queue.add(0, airplane);
         }
     }
 
     private void processNextPlane() throws InterruptedException {
-        // dumpQueues("Start");
-        Airplane nextAirplane = findEmergencyAirplane();
+        dumpQueues("Start");
+        Airplane nextAirplane = null;
+        synchronized (runwayRequestsQueue) {
+            while (runwayRequestsQueue.isEmpty() && waitingQueue.isEmpty()) {
+                runwayRequestsQueue.wait();
+            }
 
-        if (nextAirplane == null) {
-            nextAirplane = waitingQueue.peek(); // Don't take, waiting queue order must be preserved for FIFS, only take
-                                                // when approved
+            nextAirplane = findEmergencyAirplane();
+
             if (nextAirplane == null) {
-                // nextAirplane = runwayRequestsQueue.poll(5000,
-                // java.util.concurrent.TimeUnit.MILLISECONDS); // Block
-                // until a
-                // plane
-                // arrives,
-                // if main
-                // queue is
-                // empty that
-                // means no planes.
-                nextAirplane = runwayRequestsQueue.take();
+                synchronized (waitingQueue) {
+                    if (!waitingQueue.isEmpty()) {
+                        nextAirplane = waitingQueue.get(0); // Don't take, waiting queue order must be preserved for
+                                                            // FIFS, only
+                        // take
+                        // when approved
+                    }
+                }
+
+                if (nextAirplane == null && !runwayRequestsQueue.isEmpty()) {
+                    nextAirplane = runwayRequestsQueue.get(0);
+                    runwayRequestsQueue.remove(0);
+                }
             }
         }
 
         if (nextAirplane == null) {
             return;
         }
-        // dumpQueues("after select");
+        dumpQueues("after select");
 
         if (findFreeGate() == null) { // If no gates are free then no planes can land, then the program just stalls.
             // System.out.printf("[%s]: No free gates available currently. Temporarily
@@ -225,12 +246,26 @@ public class ATC implements Runnable {
             }
 
             runway.acquireRunway(); // Acquire runway for the plane
+            synchronized (runwayRequestsQueue) {
+                runwayRequestsQueue.remove(nextAirplane);
+            }
+            synchronized (waitingQueue) {
+                waitingQueue.remove(nextAirplane);
+            }
 
-            waitingQueue.remove(nextAirplane); // Remove from waiting queue if present
-            System.out.printf("[%s]: %s Permission Granted to Plane %d.\n", Thread.currentThread().getName(), // TODO
-                    nextAirplane.getNextAction(), nextAirplane.getPlaneNo());
+            if (nextAirplane.getNextAction().equals("Emergency Landing")
+                    || nextAirplane.getNextAction().equals("Landing")) {
+                System.out.printf("[%s]: %s Permission Granted to Plane %d. Assigned Gate: %d\n",
+                        Thread.currentThread().getName(),
+                        nextAirplane.getNextAction(), nextAirplane.getPlaneNo(),
+                        nextAirplane.getAssignedGate().getGateNo());
+            } else {
+                System.out.printf("[%s]: %s Permission Granted to Plane %d.\n", Thread.currentThread().getName(),
+                        nextAirplane.getNextAction(), nextAirplane.getPlaneNo());
+            }
 
             nextAirplane.markPermissionGrantedTime();
+
             if (nextAirplane.getNextAction().equals("Takeoff")) {
                 recordServedTakeoff(nextAirplane);
             } else {
@@ -243,20 +278,20 @@ public class ATC implements Runnable {
         } else {
             if (!nextAirplane.isQueuedLogged()) {
                 System.out.printf(
-                        "[%s]: %s Permission Denied to Plane %d. Next in Queue, but resources(runway, gates) are not available.\n",
+                        "[%s]: %s Permission Denied to Plane %d. Next in queue, but either the runway or gates are not available.\n",
                         Thread.currentThread().getName(),
                         nextAirplane.getNextAction(), nextAirplane.getPlaneNo());
                 nextAirplane.setQueuedLogged(true);
             }
             if (!waitingQueue.contains(nextAirplane)) {
-                waitingQueue.put(nextAirplane);
+                waitingQueue.add(nextAirplane);
             }
-            // dumpQueues("After requeue");
+            dumpQueues("After requeue");
 
         }
 
         moveAllToWaitingQueue();
-        // dumpQueues("After move to wait");
+        dumpQueues("After move to wait");
 
     }
 
@@ -308,7 +343,7 @@ public class ATC implements Runnable {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        if (waitingQueue.isEmpty() || runwayRequestsQueue.isEmpty()) {
+        if (waitingQueue.isEmpty() && runwayRequestsQueue.isEmpty()) {
             System.out.printf("[%s]: No pending requests in queues.\n", Thread.currentThread().getName());
         } else {
             System.out.printf("[%s]: Sanity check FAILED! There are still pending requests in queues.\n",
@@ -385,7 +420,7 @@ public class ATC implements Runnable {
                     return;
                 } else
                     processNextPlane();
-                // Thread.sleep(2000); // Just to smooth console output
+                Thread.sleep(2000); // Just to smooth console output
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 Thread.currentThread().interrupt();

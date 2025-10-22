@@ -1,3 +1,5 @@
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -9,7 +11,7 @@ public class Airport {
         int airplaneCount = 6;
 
         Runway runway = new Runway();
-        BlockingQueue<Airplane> landingQueue = new ArrayBlockingQueue<>(10);
+        List<Airplane> runwayRequestsQueue = new ArrayList<>();
         BlockingQueue<Airplane> refuelRequestQueue = new ArrayBlockingQueue<>(10);
 
         Gate gate1 = new Gate(1);
@@ -18,7 +20,7 @@ public class Airport {
 
         Gate[] gates = { gate1, gate2, gate3 };
 
-        ATC atc = new ATC(runway, landingQueue, gates, airplaneCount);
+        ATC atc = new ATC(runway, runwayRequestsQueue, gates, airplaneCount);
         Thread atcThread = new Thread(atc, "ATC");
         atcThread.start();
 
@@ -35,10 +37,10 @@ public class Airport {
             }
 
             if (i == 5) {
-                new Thread(new Airplane(i, runway, landingQueue, refuelRequestQueue, "Emergency Landing", atc),
+                new Thread(new Airplane(i, runway, runwayRequestsQueue, refuelRequestQueue, "Emergency Landing", atc),
                         "Plane-" + i).start();
             } else {
-                new Thread(new Airplane(i, runway, landingQueue, refuelRequestQueue, "Landing", atc), "Plane-" + i)
+                new Thread(new Airplane(i, runway, runwayRequestsQueue, refuelRequestQueue, "Landing", atc), "Plane-" + i)
                         .start();
             }
         }
