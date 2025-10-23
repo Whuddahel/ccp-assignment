@@ -13,7 +13,7 @@ public class Airplane implements Runnable {
     private final Runway runway;
     private final ATC atc;
     private final List<Airplane> runwayRequestsQueue;
-    private final BlockingQueue<Airplane> refuelRequestQueue;
+    private final List<Airplane> refuelRequestQueue;
     private String nextAction; // Literally just used for nicer print statements
     private boolean isQueuedLogged = false;
 
@@ -76,7 +76,7 @@ public class Airplane implements Runnable {
 
     // CONSTRUCTOR
     public Airplane(int id, Runway runway, List<Airplane> runwayRequestsQueue,
-            BlockingQueue<Airplane> refuelRequestQueue, String nextAction, ATC atc) {
+            List<Airplane> refuelRequestQueue, String nextAction, ATC atc) {
         this.planeNo = id;
         this.runway = runway;
         this.runwayRequestsQueue = runwayRequestsQueue;
@@ -151,7 +151,10 @@ public class Airplane implements Runnable {
 
         try {
             Thread.sleep(1000); // Simulate time taken to dock
-            refuelRequestQueue.put(this);
+            synchronized (refuelRequestQueue) {
+                refuelRequestQueue.add(this);
+                refuelRequestQueue.notifyAll(); // Notify Refuelling Truck that a plane needs refuelling
+            }
             System.out.printf("[%s]: Plane %d at Gate %d has requested refuelling. \n",
                     Thread.currentThread().getName(),
                     this.planeNo,
@@ -166,9 +169,9 @@ public class Airplane implements Runnable {
         synchronized (this) {
             notifyAll(); // Notify passengers that the plane has docked and they can disembark
         }
-        synchronized (atc) {
-            atc.notifyAll(); // Notify ATC that the runway is free
-        }
+        // synchronized (atc) {
+        //     atc.notifyAll(); // Notify ATC that the runway is free
+        // }
     }
 
     public boolean isReadyForTakeoff() {

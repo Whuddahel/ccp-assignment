@@ -1,17 +1,18 @@
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Semaphore;
 
 public class RefuellingTruck implements Runnable {
     private final Semaphore refuellingTruckLock = new Semaphore(1);
     private Gate currentGate;
-    private BlockingQueue<Airplane> refuelRequestQueue;
+    private List<Airplane> refuelRequestQueue;
     private Airplane airplaneToRefuel;
 
     private volatile boolean running = true;
 
     // GETTERS & SETTERS
     // CONSTRUCTOR
-    public RefuellingTruck(BlockingQueue<Airplane> refuelRequestQueue, Gate currentGate) {
+    public RefuellingTruck(List<Airplane> refuelRequestQueue, Gate currentGate) {
         this.refuelRequestQueue = refuelRequestQueue;
         this.currentGate = currentGate;
     }
@@ -19,7 +20,20 @@ public class RefuellingTruck implements Runnable {
     // METHODS
     public void killMyself() {
         running = false;
-        Thread.currentThread().interrupt(); // Possibility for thread to be waiting on BlockingQueue.take()
+        synchronized (refuelRequestQueue) {
+            refuelRequestQueue.notifyAll(); // Notify in case the truck is waiting for requests
+        }
+    }
+    private Airplane nextAirplaneToRefuel() throws InterruptedException {
+        synchronized (refuelRequestQueue) {
+            while (refuelRequestQueue.isEmpty() && running) {
+                refuelRequestQueue.wait();
+            }
+            if (!running) {
+                throw new InterruptedException("Refuelling Truck is terminating.");
+            }
+            return refuelRequestQueue.remove(0);
+        }
     }
     public void moveToGate() {
 
@@ -84,7 +98,7 @@ public class RefuellingTruck implements Runnable {
     public void run() {
         while (true) {
             try {
-                airplaneToRefuel = refuelRequestQueue.take();
+                airplaneToRefuel = nextAirplaneToRefuel();
 
                 acquireRefuellingTruck();
                 moveToGate();

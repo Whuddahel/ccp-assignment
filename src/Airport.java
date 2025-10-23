@@ -12,7 +12,7 @@ public class Airport {
 
         Runway runway = new Runway();
         List<Airplane> runwayRequestsQueue = new ArrayList<>();
-        BlockingQueue<Airplane> refuelRequestQueue = new ArrayBlockingQueue<>(10);
+        List<Airplane> refuelRequestQueue = new ArrayList<>();
 
         Gate gate1 = new Gate(1);
         Gate gate2 = new Gate(2);
