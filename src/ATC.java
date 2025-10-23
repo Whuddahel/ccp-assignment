@@ -1,9 +1,5 @@
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.OptionalLong;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ATC implements Runnable {
@@ -205,7 +201,7 @@ public class ATC implements Runnable {
     }
 
     private void processNextPlane() throws InterruptedException {
-        dumpQueues("Start");
+        // dumpQueues("Start");
         Airplane nextAirplane = null;
         synchronized (runwayRequestsQueue) {
             while (runwayRequestsQueue.isEmpty() && waitingQueue.isEmpty()) {
@@ -218,7 +214,7 @@ public class ATC implements Runnable {
                 synchronized (waitingQueue) {
                     if (!waitingQueue.isEmpty()) {
                         nextAirplane = waitingQueue.get(0); // Don't take, waiting queue order must be preserved for
-                                                            // FIFS, only take when approved
+                                                            // FCFS, only take when approved
                     }
                 }
 
@@ -232,7 +228,7 @@ public class ATC implements Runnable {
         if (nextAirplane == null) {
             return;
         }
-        dumpQueues("after select");
+        // dumpQueues("after select");
 
         if (findFreeGate() == null) { // If no gates are free then no planes can land, then the program just stalls.
             if (!takeoffPriorityLogged) {
@@ -299,12 +295,12 @@ public class ATC implements Runnable {
             if (!waitingQueue.contains(nextAirplane)) {
                 waitingQueue.add(nextAirplane);
             }
-            dumpQueues("After requeue");
+            // dumpQueues("After requeue");
 
         }
 
         moveAllToWaitingQueue();
-        dumpQueues("After move to wait");
+        // dumpQueues("After move to wait");
 
     }
 
@@ -399,6 +395,7 @@ public class ATC implements Runnable {
                 break;
             }
         }
+        // minNonZero = waitingTimes.get(0); 
 
         System.out.printf("[%s]: Average plane waiting time: %.2f ms\n", Thread.currentThread().getName(), averageWait);
         System.out.printf("[%s]: Maximum plane waiting time: %.2f ms\n", Thread.currentThread().getName(), maxWait);
@@ -433,7 +430,7 @@ public class ATC implements Runnable {
                     return;
                 } else
                     processNextPlane();
-                Thread.sleep(2000); // Just to smooth console output
+                // Thread.sleep(2000); // Just to smooth console output
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 Thread.currentThread().interrupt();

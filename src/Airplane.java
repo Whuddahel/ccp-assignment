@@ -1,5 +1,4 @@
 import java.util.List;
-import java.util.concurrent.BlockingQueue;
 
 public class Airplane implements Runnable {
     private final int planeNo;
@@ -102,17 +101,27 @@ public class Airplane implements Runnable {
     }
 
     void requestLanding() {
-        if (nextAction.equals("Emergency Landing")) {
-            System.out.printf("[%s]: Plane %d requesting EMERGENCY landing!\n", Thread.currentThread().getName(),
-                    this.planeNo);
-        } else {
-            System.out.printf("[%s]: Plane %d requesting to land.\n", Thread.currentThread().getName(), this.planeNo);
-        }
+        try {
+            if (nextAction.equals("Emergency Landing")) {
+                System.out.printf("[%s]: Plane %d requesting EMERGENCY landing!\n", Thread.currentThread().getName(),
+                        this.planeNo);
+            } else {
+                System.out.printf("[%s]: Plane %d requesting to land.\n", Thread.currentThread().getName(),
+                        this.planeNo);
+            }
 
-        markRequestTime();
-        synchronized (runwayRequestsQueue) {
-            runwayRequestsQueue.add(this);
-            runwayRequestsQueue.notifyAll(); // Notify ATC that a plane is requesting to land
+            markRequestTime();
+            synchronized (runwayRequestsQueue) {
+                runwayRequestsQueue.add(this);
+                runwayRequestsQueue.notifyAll(); // Notify ATC that a plane is requesting to land
+            }
+
+            synchronized (this) {
+                wait(); // Wait until ATC grants permission to take off
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -170,7 +179,7 @@ public class Airplane implements Runnable {
             notifyAll(); // Notify passengers that the plane has docked and they can disembark
         }
         // synchronized (atc) {
-        //     atc.notifyAll(); // Notify ATC that the runway is free
+        // atc.notifyAll(); // Notify ATC that the runway is free
         // }
     }
 
@@ -243,14 +252,6 @@ public class Airplane implements Runnable {
     @Override
     public void run() {
         requestLanding(); // Ask ATC
-
-        synchronized (this) {
-            try {
-                wait();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }
 
         land();
         coastToGate();
