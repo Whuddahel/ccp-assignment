@@ -106,6 +106,17 @@ public class ATC implements Runnable {
                 }
             }
         }
+        synchronized (runwayRequestsQueue) {
+            for (Airplane airplane : runwayRequestsQueue) {
+                if (airplane.getNextAction().equals("Takeoff")) {
+                    // System.out.println("Found takeoff airplane in main queue: " +
+                    // airplane.getPlaneNo());
+                    runwayRequestsQueue.remove(airplane);
+                    requeueFront(waitingQueue, airplane);
+                    return airplane;
+                }
+            }
+        }
         return null;
     }
 
@@ -194,7 +205,7 @@ public class ATC implements Runnable {
     }
 
     private void processNextPlane() throws InterruptedException {
-        // dumpQueues("Start");
+        dumpQueues("Start");
         Airplane nextAirplane = null;
         synchronized (runwayRequestsQueue) {
             while (runwayRequestsQueue.isEmpty() && waitingQueue.isEmpty()) {
@@ -207,9 +218,7 @@ public class ATC implements Runnable {
                 synchronized (waitingQueue) {
                     if (!waitingQueue.isEmpty()) {
                         nextAirplane = waitingQueue.get(0); // Don't take, waiting queue order must be preserved for
-                                                            // FIFS, only
-                        // take
-                        // when approved
+                                                            // FIFS, only take when approved
                     }
                 }
 
@@ -223,7 +232,7 @@ public class ATC implements Runnable {
         if (nextAirplane == null) {
             return;
         }
-        // dumpQueues("after select");
+        dumpQueues("after select");
 
         if (findFreeGate() == null) { // If no gates are free then no planes can land, then the program just stalls.
             if (!takeoffPriorityLogged) {
@@ -290,12 +299,12 @@ public class ATC implements Runnable {
             if (!waitingQueue.contains(nextAirplane)) {
                 waitingQueue.add(nextAirplane);
             }
-            // dumpQueues("After requeue");
+            dumpQueues("After requeue");
 
         }
 
         moveAllToWaitingQueue();
-        // dumpQueues("After move to wait");
+        dumpQueues("After move to wait");
 
     }
 
@@ -393,7 +402,7 @@ public class ATC implements Runnable {
 
         System.out.printf("[%s]: Average plane waiting time: %.2f ms\n", Thread.currentThread().getName(), averageWait);
         System.out.printf("[%s]: Maximum plane waiting time: %.2f ms\n", Thread.currentThread().getName(), maxWait);
-        System.out.printf("[%s]: Minimum non-zerp plane waiting time: %.2f ms\n", Thread.currentThread().getName(),
+        System.out.printf("[%s]: Minimum non-zero plane waiting time: %.2f ms\n", Thread.currentThread().getName(),
                 minNonZero);
 
         System.out.println(
@@ -424,7 +433,7 @@ public class ATC implements Runnable {
                     return;
                 } else
                     processNextPlane();
-                // Thread.sleep(2000); // Just to smooth console output
+                Thread.sleep(2000); // Just to smooth console output
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 Thread.currentThread().interrupt();
